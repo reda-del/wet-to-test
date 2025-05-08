@@ -1,0 +1,7 @@
+
+project_id = "ngdotwphrhuyfgqozqvm"
+
+[auth]
+disable_signup = false
+enable_signup = true
+email_confirm_required = false
