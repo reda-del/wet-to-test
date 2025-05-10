@@ -111,9 +111,6 @@ const Downloads: React.FC = () => {
           <p className="text-muted-foreground mb-4">
             Need more comprehensive resources? Check out our premium lab packages.
           </p>
-          <Button size="lg" className="bg-ozar-red text-white hover:bg-ozar-red/90">
-            View Premium Labs
-          </Button>
         </div>
       </div>
     </section>

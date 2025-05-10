@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -25,7 +24,7 @@ interface Service {
   title: string;
   short_description: string;
   full_description: string;
-  price?: string;
+  price?: number | string; // Updated to accept both number and string
   created_at: string;
 }
 
@@ -42,7 +41,7 @@ const ServicesPage: React.FC = () => {
       icon: <Network className="h-12 w-12 text-ozar-red" />,
       title: "Network Configuration Labs",
       short_description: "Hands-on experience with real-world network configurations including routing, switching, and security implementations.",
-      price: "From $29.99/month",
+      price: 29.99, // Changed from string to number
       full_description: "Our Network Configuration Labs provide comprehensive hands-on experience with real-world network environments. You'll work with the latest routing protocols, switching technologies, and security implementations in a safe, sandboxed environment. These labs are perfect for both beginners learning the fundamentals and experienced professionals preparing for certifications or keeping their skills sharp. Each lab includes step-by-step guides, troubleshooting scenarios, and best practice recommendations.",
       created_at: new Date().toISOString()
     },
@@ -51,7 +50,7 @@ const ServicesPage: React.FC = () => {
       icon: <Server className="h-12 w-12 text-ozar-red" />,
       title: "Advanced Cisco Environments",
       short_description: "Practice with advanced Cisco environments designed for CCNA, CCNP, and CCIE certification preparation.",
-      price: "From $49.99/month",
+      price: 49.99, // Changed from string to number
       full_description: "Our Advanced Cisco Environments are meticulously designed to match the requirements for CCNA, CCNP, and CCIE certification exams. These labs feature authentic Cisco IOS environments, allowing you to practice on the same systems you'll encounter in the real world. We provide scenarios that closely mimic actual exam questions and enterprise networking challenges. With our detailed guides and expert support, you'll be fully prepared to ace your certification exams and apply your knowledge in professional settings.",
       created_at: new Date().toISOString()
     },
@@ -60,7 +59,7 @@ const ServicesPage: React.FC = () => {
       icon: <Laptop className="h-12 w-12 text-ozar-red" />,
       title: "Cloud Networking Solutions",
       short_description: "Learn how to deploy and manage network infrastructure in cloud environments including AWS, Azure, and GCP.",
-      price: "From $39.99/month",
+      price: 39.99, // Changed from string to number
       full_description: "Our Cloud Networking Solutions provide comprehensive training and practical experience for deploying and managing modern network infrastructure across major cloud providers including AWS, Azure, and Google Cloud Platform. Learn essential skills such as virtual network configuration, security group management, load balancing, VPN setup, and hybrid cloud connectivity. These labs bridge the gap between traditional networking knowledge and cloud-native approaches, preparing you for the demands of today's multi-cloud enterprise environments.",
       created_at: new Date().toISOString()
     },
@@ -69,7 +68,7 @@ const ServicesPage: React.FC = () => {
       icon: <Clock className="h-12 w-12 text-ozar-red" />,
       title: "24/7 Lab Access",
       short_description: "Full access to all lab environments at any time of day, with unlimited usage and save states.",
-      price: "From $59.99/month",
+      price: 59.99, // Changed from string to number
       full_description: "With our 24/7 Lab Access subscription, you get unrestricted access to our complete library of network laboratories whenever inspiration strikes. Work at your own pace with no time limits or scheduling constraints. Our platform features powerful save states functionality, allowing you to pause your work and return to it later, exactly where you left off. This flexibility makes it perfect for busy professionals who need to fit their learning around existing commitments, or for those who prefer to deep dive into complex topics during off-hours.",
       created_at: new Date().toISOString()
     },
@@ -78,7 +77,7 @@ const ServicesPage: React.FC = () => {
       icon: <Users className="h-12 w-12 text-ozar-red" />,
       title: "Team Collaboration Labs",
       short_description: "Multi-user environments designed for team training and collaborative learning experiences.",
-      price: "From $99.99/month",
+      price: 99.99, // Changed from string to number
       full_description: "Our Team Collaboration Labs create shared networking environments where multiple users can work together simultaneously on complex infrastructure projects. Perfect for corporate training, academic classes, or study groups preparing for certifications together. These labs feature real-time collaboration tools, shared access controls, and instructor monitoring capabilities. Team members can see each other's changes in real-time, troubleshoot together, and learn from each other's approaches. The perfect solution for organizations looking to upskill their entire networking team at once.",
       created_at: new Date().toISOString()
     },
@@ -87,7 +86,7 @@ const ServicesPage: React.FC = () => {
       icon: <Headphones className="h-12 w-12 text-ozar-red" />,
       title: "Premium Support Package",
       short_description: "Get dedicated technical support, personalized learning plans, and expert guidance throughout your learning journey.",
-      price: "From $79.99/month",
+      price: 79.99, // Changed from string to number
       full_description: "Our Premium Support Package gives you personalized attention from our team of certified network engineers and instructors. Receive one-on-one guidance, have your lab work reviewed by experts, and get personalized feedback to accelerate your learning. We'll create customized learning paths based on your goals, whether you're preparing for a specific certification or developing skills for a new role. Premium support members also get priority access to our help desk, extended lab sessions, and exclusive webinars covering advanced networking topics and industry trends.",
       created_at: new Date().toISOString()
     },
@@ -126,6 +125,14 @@ const ServicesPage: React.FC = () => {
     }
   };
 
+  // Format price display with currency
+  const formatPrice = (price?: number | string) => {
+    if (price === undefined) return 'Contact for pricing';
+    if (typeof price === 'string') return price;
+    if (price === 0) return 'Free';
+    return `From $${price.toFixed(2)}/month`;
+  };
+
   // Fetch services from Supabase
   useEffect(() => {
     const fetchServices = async () => {
@@ -145,7 +152,7 @@ const ServicesPage: React.FC = () => {
           const processedServices = data.map(service => ({
             ...service,
             icon: getIconForService(service.title),
-            price: "From $29.99/month" // Default price if needed
+            // No default price here, we'll use what's in the database
           }));
           
           setServices(processedServices);
@@ -208,7 +215,9 @@ const ServicesPage: React.FC = () => {
                     </CardHeader>
                     <CardFooter className="mt-auto">
                       <div className="flex justify-between items-center w-full">
-                        <p className="text-base font-medium text-ozar-red">{service.price || 'Contact for pricing'}</p>
+                        <p className="text-base font-medium text-ozar-red">
+                          {formatPrice(service.price)}
+                        </p>
                         <Button 
                           className="bg-ozar-red hover:bg-ozar-red/90"
                           onClick={() => handleLearnMore(service)}
@@ -234,7 +243,7 @@ const ServicesPage: React.FC = () => {
               {selectedService?.title}
             </DialogTitle>
             <DialogDescription>
-              {selectedService?.price}
+              {formatPrice(selectedService?.price)}
               {selectedService?.created_at && (
                 <div className="mt-1 text-xs">
                   Added on {formatDate(selectedService.created_at)}

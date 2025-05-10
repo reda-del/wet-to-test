@@ -1,287 +1,299 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Loader } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import { Loader, Server, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
 import { toast } from '@/components/ui/sonner';
 
-interface LabType {
+// Define the lab type
+type Lab = {
   id: string;
   title: string;
   description: string;
-  difficulty: string;
-  duration: string;
-  popular: boolean;
-  instructions?: string;
-  price?: number;
-}
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  status: 'available' | 'maintenance' | 'coming_soon';
+  estimated_time: number; // in minutes
+};
 
-interface ServiceType {
+// Define the lab session type
+type LabSession = {
   id: string;
-  title: string;
-  short_description: string;
-  full_description: string;
-  created_at: string;
-  created_by: string;
-  price?: number;
-}
+  user_id: string;
+  lab_id: string;
+  started_at: string;
+  completed_at: string | null;
+};
 
 const PremiumLabs: React.FC = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const [premiumLabs, setPremiumLabs] = useState<LabType[]>([]);
+  const { user, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedLab, setSelectedLab] = useState<LabType | null>(null);
-  const [isLabModalOpen, setIsLabModalOpen] = useState(false);
-  const [isLaunching, setIsLaunching] = useState(false);
-  const [labLaunched, setLabLaunched] = useState(false);
+  const [labs, setLabs] = useState<Lab[]>([]);
+  const [sessions, setSessions] = useState<LabSession[]>([]);
+  const [startingLab, setStartingLab] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchServices();
-  }, []);
+    fetchLabs();
+    if (user) {
+      fetchUserSessions();
+    }
+  }, [user]);
 
-  const fetchServices = async () => {
+  const fetchLabs = async () => {
     setIsLoading(true);
     try {
-      // Fetch services from the database
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Transform services to LabType format
-      const labsData = data.map((service: ServiceType) => ({
-        id: service.id,
-        title: service.title,
-        description: service.short_description,
-        // Map difficulty based on price or other factors
-        difficulty: service.price && service.price > 50 ? "Expert" : 
-                  service.price && service.price > 20 ? "Advanced" : "Intermediate",
-        duration: "4-6 hours", // Default duration
-        popular: Math.random() > 0.5, // Randomly set popular flag
-        instructions: service.full_description,
-        price: service.price || 0,
-      }));
-
-      setPremiumLabs(labsData.length > 0 ? labsData : [
+      // This is just demo data since we don't have a labs table yet
+      // In a real app, you would fetch this from Supabase
+      const demoLabs: Lab[] = [
         {
-          id: "1",
-          title: "Enterprise Network Design",
-          description: "Create and configure a complex enterprise network with multiple sites, routing protocols, and security features.",
-          difficulty: "Advanced",
-          duration: "8-10 hours",
-          popular: true,
-          instructions: "This is a sample lab instruction. In a real implementation, this would contain detailed steps for the lab."
+          id: 'lab1',
+          title: 'Introduction to Network Analysis',
+          description: 'Learn the fundamentals of network analysis and packet inspection.',
+          difficulty: 'beginner',
+          status: 'available',
+          estimated_time: 60,
         },
         {
-          id: "2",
-          title: "SD-WAN Implementation",
-          description: "Learn how to deploy and manage Software-Defined Wide Area Networks with hands-on exercises.",
-          difficulty: "Expert",
-          duration: "6-8 hours",
-          popular: false,
-          instructions: "This is a sample lab instruction for SD-WAN implementation. Follow these steps to complete the lab."
+          id: 'lab2',
+          title: 'Advanced Vulnerability Scanning',
+          description: 'Discover and analyze network vulnerabilities through hands-on exercises.',
+          difficulty: 'intermediate',
+          status: 'available',
+          estimated_time: 90,
         },
-        // ... other sample labs
-      ]);
-    } catch (error: any) {
+        {
+          id: 'lab3',
+          title: 'Wireless Network Security',
+          description: 'Practical approach to securing wireless networks against common attacks.',
+          difficulty: 'intermediate',
+          status: 'available',
+          estimated_time: 120,
+        },
+        {
+          id: 'lab4',
+          title: 'Penetration Testing Methodology',
+          description: 'Step-by-step approach to conducting thorough penetration tests.',
+          difficulty: 'advanced',
+          status: 'coming_soon',
+          estimated_time: 150,
+        },
+        {
+          id: 'lab5',
+          title: 'Incident Response Simulation',
+          description: 'Real-world scenarios for practicing incident response procedures.',
+          difficulty: 'advanced',
+          status: 'maintenance',
+          estimated_time: 180,
+        },
+      ];
+      
+      setLabs(demoLabs);
+      setIsLoading(false);
+    } catch (error) {
       console.error('Error fetching labs:', error);
-    } finally {
+      toast.error('Failed to load labs');
       setIsLoading(false);
     }
   };
 
-  const handleLabAccess = (lab: LabType) => {
+  const fetchUserSessions = async () => {
+    try {
+      // Again, this is demo data since we don't have a lab_sessions table yet
+      // We'll simulate some active and completed sessions
+      const demoSessions: LabSession[] = [
+        {
+          id: 'session1',
+          user_id: user?.id || '',
+          lab_id: 'lab1',
+          started_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+          completed_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(), // 6 days ago
+        },
+        {
+          id: 'session2',
+          user_id: user?.id || '',
+          lab_id: 'lab2',
+          started_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+          completed_at: null, // Still in progress
+        },
+      ];
+      
+      setSessions(demoSessions);
+    } catch (error) {
+      console.error('Error fetching user sessions:', error);
+    }
+  };
+
+  const startLab = async (labId: string) => {
     if (!user) {
+      toast.error('Please log in to access labs');
       navigate('/login');
       return;
     }
     
-    // Open lab instructions modal
-    setSelectedLab(lab);
-    setIsLabModalOpen(true);
-    setLabLaunched(false);
-    
-    // Log lab session
-    logLabSession(lab.id);
-  };
-  
-  const logLabSession = async (labId: string) => {
-    if (!user) return;
+    setStartingLab(labId);
     
     try {
-      // Check if we have a lab_sessions table in the database
-      const { error } = await supabase
-        .from('lab_sessions')
-        .insert({
+      // In a real app, you would create a new session in Supabase
+      // For now, we'll just simulate it
+      setTimeout(() => {
+        const newSession: LabSession = {
+          id: `session-${Date.now()}`,
           user_id: user.id,
           lab_id: labId,
-          start_timestamp: new Date().toISOString()
-        });
-      
-      if (error && error.code !== '42P01') { // Ignore if table doesn't exist
-        console.error('Error logging lab session:', error);
-      }
+          started_at: new Date().toISOString(),
+          completed_at: null,
+        };
+        
+        setSessions([...sessions, newSession]);
+        toast.success('Lab started successfully!');
+        navigate('/dashboard');
+      }, 1500);
     } catch (error) {
-      console.error('Error logging lab session:', error);
+      console.error('Error starting lab:', error);
+      toast.error('Failed to start lab');
+    } finally {
+      setStartingLab(null);
     }
   };
-  
-  const handleLaunchLab = async () => {
-    if (!selectedLab) return;
-    
-    setIsLaunching(true);
-    
-    try {
-      // Simulate lab environment launching
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      setLabLaunched(true);
-      toast.success("Lab environment launched successfully!");
-      
-      // In a real implementation, this would launch the actual lab environment
-      // Example: open an iframe, connect to a VM, etc.
-    } catch (error) {
-      toast.error("Failed to launch lab environment. Please try again.");
-    } finally {
-      setIsLaunching(false);
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'beginner':
+        return 'bg-green-500 hover:bg-green-600';
+      case 'intermediate':
+        return 'bg-yellow-500 hover:bg-yellow-600';
+      case 'advanced':
+        return 'bg-red-500 hover:bg-red-600';
+      default:
+        return 'bg-blue-500 hover:bg-blue-600';
     }
+  };
+
+  const getStatusDetails = (status: string) => {
+    switch (status) {
+      case 'available':
+        return { icon: <CheckCircle className="h-4 w-4 text-green-500" />, text: 'Available', color: 'text-green-500' };
+      case 'maintenance':
+        return { icon: <Clock className="h-4 w-4 text-yellow-500" />, text: 'Maintenance', color: 'text-yellow-500' };
+      case 'coming_soon':
+        return { icon: <XCircle className="h-4 w-4 text-gray-400" />, text: 'Coming Soon', color: 'text-gray-400' };
+      default:
+        return { icon: <CheckCircle className="h-4 w-4 text-green-500" />, text: 'Available', color: 'text-green-500' };
+    }
+  };
+
+  const isLabCompleted = (labId: string) => {
+    return sessions.some(session => session.lab_id === labId && session.completed_at !== null);
+  };
+
+  const isLabInProgress = (labId: string) => {
+    return sessions.some(session => session.lab_id === labId && session.completed_at === null);
   };
 
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
-      <main className="flex-grow">
-        <section className="py-12 md:py-16 lg:py-20 bg-ozar-black text-white">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center text-center space-y-4 md:space-y-6">
-              <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Premium Network Labs</h1>
-              <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
-                Advanced hands-on labs designed for networking professionals who want to master complex scenarios and cutting-edge technologies.
-              </p>
-              {!user && (
-                <div className="flex items-center mt-4 p-3 bg-ozar-red/20 rounded-md text-white">
-                  <AlertCircle className="h-5 w-5 mr-2" />
-                  <p className="text-sm">Sign in to access our premium labs and save your progress</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+      <main className="flex-grow container px-4 py-8 md:py-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Premium Labs</h1>
+          <p className="text-muted-foreground">
+            Access our exclusive hands-on labs to practice your network security skills in real-world scenarios.
+          </p>
+        </div>
 
-        <section className="py-12 md:py-16 lg:py-20">
-          <div className="container px-4 md:px-6">
-            {isLoading ? (
-              <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-ozar-red"></div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {premiumLabs.map((lab) => (
-                  <Card key={lab.id} className="flex flex-col border-2 hover:border-ozar-red transition-colors">
-                    <CardHeader>
-                      <div className="flex justify-between items-center mb-2">
-                        <Badge variant="outline" className="bg-ozar-red/10 text-ozar-red border-ozar-red">
-                          {lab.difficulty}
-                        </Badge>
-                        {lab.popular && (
-                          <Badge className="bg-ozar-red">Popular</Badge>
-                        )}
-                      </div>
-                      <CardTitle className="text-xl">{lab.title}</CardTitle>
-                      <CardDescription>{lab.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <p className="text-sm">Estimated duration: {lab.duration}</p>
-                        {lab.price !== undefined && (
-                          <p className="text-sm font-medium">
-                            Price: {lab.price === 0 ? 'Free' : `$${lab.price.toFixed(2)}`}
-                          </p>
-                        )}
-                      </div>
-                    </CardContent>
-                    <CardFooter className="mt-auto">
-                      <Button 
-                        onClick={() => handleLabAccess(lab)} 
-                        className="w-full bg-ozar-red hover:bg-ozar-red/90"
-                      >
-                        {user ? 'Start Lab' : 'Sign In to Access'}
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, index) => (
+              <Card key={index} className="animate-pulse">
+                <CardHeader>
+                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-24 bg-gray-200 rounded"></div>
+                </CardContent>
+                <CardFooter>
+                  <div className="h-10 bg-gray-200 rounded w-full"></div>
+                </CardFooter>
+              </Card>
+            ))
+          ) : (
+            labs.map(lab => (
+              <Card key={lab.id} className={lab.status !== 'available' ? 'opacity-75' : ''}>
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <CardTitle>{lab.title}</CardTitle>
+                    <Badge className={getDifficultyColor(lab.difficulty)}>
+                      {lab.difficulty.charAt(0).toUpperCase() + lab.difficulty.slice(1)}
+                    </Badge>
+                  </div>
+                  <CardDescription className="flex items-center gap-1">
+                    {getStatusDetails(lab.status).icon}
+                    <span className={getStatusDetails(lab.status).color}>{getStatusDetails(lab.status).text}</span>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{lab.description}</p>
+                  <div className="mt-4 flex items-center text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4 mr-2" />
+                    <span>Estimated time: {lab.estimated_time} minutes</span>
+                  </div>
+                  
+                  {isLabCompleted(lab.id) && (
+                    <div className="mt-2 flex items-center text-sm text-green-500">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      <span>Completed</span>
+                    </div>
+                  )}
+                  
+                  {isLabInProgress(lab.id) && !isLabCompleted(lab.id) && (
+                    <div className="mt-2 flex items-center text-sm text-blue-500">
+                      <Server className="h-4 w-4 mr-2" />
+                      <span>In Progress</span>
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    className="w-full bg-ozar-red hover:bg-ozar-red/90"
+                    disabled={lab.status !== 'available' || startingLab === lab.id}
+                    onClick={() => startLab(lab.id)}
+                  >
+                    {startingLab === lab.id ? (
+                      <>
+                        <Loader className="h-4 w-4 mr-2 animate-spin" />
+                        Starting Lab...
+                      </>
+                    ) : isLabInProgress(lab.id) ? (
+                      'Continue Lab'
+                    ) : isLabCompleted(lab.id) ? (
+                      'Restart Lab'
+                    ) : (
+                      'Start Lab'
+                    )}
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))
+          )}
+        </div>
+
+        {labs.length === 0 && !isLoading && (
+          <div className="text-center py-8">
+            <h3 className="text-xl font-medium mb-2">No labs available</h3>
+            <p className="text-muted-foreground">
+              Check back later for new premium lab content.
+            </p>
           </div>
-        </section>
+        )}
       </main>
       <Footer />
-      
-      {/* Lab Instructions Modal */}
-      <Dialog open={isLabModalOpen} onOpenChange={setIsLabModalOpen}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl">{selectedLab?.title}</DialogTitle>
-            <DialogDescription>
-              Follow the instructions below to complete this lab
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="mt-4 space-y-4">
-            <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md">
-              <h3 className="font-medium mb-2">Lab Overview</h3>
-              <p className="text-sm text-muted-foreground">{selectedLab?.description}</p>
-            </div>
-            
-            <div className="space-y-2">
-              <h3 className="font-medium">Lab Instructions</h3>
-              <div className="p-4 border rounded-md max-h-64 overflow-y-auto">
-                <p className="whitespace-pre-line">{selectedLab?.instructions || 'No instructions available.'}</p>
-              </div>
-            </div>
-            
-            {!labLaunched ? (
-              <Button 
-                onClick={handleLaunchLab} 
-                className="w-full bg-ozar-red hover:bg-ozar-red/90"
-                disabled={isLaunching}
-              >
-                {isLaunching ? (
-                  <>
-                    <Loader className="h-4 w-4 mr-2 animate-spin" />
-                    Launching Lab Environment...
-                  </>
-                ) : 'Launch Lab Environment'}
-              </Button>
-            ) : (
-              <div className="space-y-4">
-                <div className="bg-green-100 dark:bg-green-800/20 text-green-800 dark:text-green-300 p-4 rounded-md">
-                  <p className="font-medium">Lab environment launched successfully!</p>
-                </div>
-                
-                <div className="border rounded-md p-4 h-64 flex items-center justify-center bg-gray-50 dark:bg-gray-800">
-                  <div className="text-center">
-                    <p className="mb-2">Lab environment is running</p>
-                    <p className="text-sm text-muted-foreground">
-                      In a real implementation, this would contain an iframe or connection to your virtual lab environment.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

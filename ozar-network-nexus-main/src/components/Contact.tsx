@@ -90,23 +90,6 @@ const Contact: React.FC = () => {
                 </a>
               </div>
             </div>
-
-            <div className="flex items-start">
-              <div className="flex-shrink-0 mr-4">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-ozar-red/10 text-ozar-red">
-                  <MessageSquare className="h-5 w-5" />
-                </div>
-              </div>
-              <div>
-                <h3 className="text-lg font-medium mb-1">Live Chat</h3>
-                <p className="text-muted-foreground mb-2">
-                  Get real-time assistance from our tech support team
-                </p>
-                <Button variant="outline" className="border-ozar-red text-ozar-red hover:bg-ozar-red hover:text-white mt-1">
-                  Start Chat
-                </Button>
-              </div>
-            </div>
           </div>
 
           <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">

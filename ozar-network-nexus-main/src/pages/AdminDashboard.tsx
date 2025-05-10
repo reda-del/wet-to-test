@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { number, z } from "zod";
+import { z } from "zod";
 import { toast } from '@/components/ui/sonner';
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -102,6 +102,10 @@ const AdminDashboard: React.FC = () => {
   const [isBlogModalOpen, setIsBlogModalOpen] = useState(false);
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
 
+  // State for tracking whether we're editing an existing service
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentServiceId, setCurrentServiceId] = useState<string | null>(null);
+
   // Loading states
   const [isSubmittingService, setIsSubmittingService] = useState(false);
   const [isSubmittingBlog, setIsSubmittingBlog] = useState(false);
@@ -139,6 +143,7 @@ const AdminDashboard: React.FC = () => {
       access: "free",
     },
   });
+
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (!user) {
@@ -236,6 +241,7 @@ const AdminDashboard: React.FC = () => {
     }
   };
   
+  // Updated function to fetch all users properly
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
     try {
@@ -246,7 +252,21 @@ const AdminDashboard: React.FC = () => {
         .order('created_at', { ascending: false });
         
       if (error) throw error;
-      setUsers(data || []);
+      
+      if (data) {
+        // Make sure we have the correct data structure
+        setUsers(data.map(user => ({
+          id: user.id,
+          created_at: user.created_at || '',
+          email: user.email || '',
+          role: user.role || 'user',
+          first_name: user.first_name,
+          last_name: user.last_name
+        })));
+        console.log('Fetched users:', data);
+      } else {
+        setUsers([]);
+      }
     } catch (error: any) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
@@ -255,33 +275,84 @@ const AdminDashboard: React.FC = () => {
     }
   };
   
+  // Handle opening the edit service modal
+  const handleEditService = (service: ServiceType) => {
+    setIsEditing(true);
+    setCurrentServiceId(service.id);
+    
+    // Populate the form with service data
+    serviceForm.reset({
+      title: service.title,
+      short_description: service.short_description,
+      full_description: service.full_description,
+      price: service.price != null ? Number(service.price) : 0,
+    });
+    
+    setIsServiceModalOpen(true);
+  };
+  
+  // Reset the service form when closing the modal
+  const handleCloseServiceModal = () => {
+    setIsServiceModalOpen(false);
+    setIsEditing(false);
+    setCurrentServiceId(null);
+    
+    // Reset the form
+    serviceForm.reset({
+      title: "",
+      short_description: "",
+      full_description: "",
+      price: 0,
+    });
+  };
+  
   const onServiceSubmit = async (values: z.infer<typeof serviceSchema>) => {
     setIsSubmittingService(true);
     
     try {
-      const { data, error } = await supabase
-        .from('services')
-        .insert({
-          title: values.title,
-          short_description: values.short_description,
-          full_description: values.full_description,
-          created_by: user?.id,
-          price: values.price, // Save price to database
-        })
-        .select();
+      if (isEditing && currentServiceId) {
+        // Update existing service
+        const { error } = await supabase
+          .from('services')
+          .update({
+            title: values.title,
+            short_description: values.short_description,
+            full_description: values.full_description,
+            price: values.price,
+          })
+          .eq('id', currentServiceId);
+        
+        if (error) throw error;
+        
+        toast.success('Service updated successfully!');
+      } else {
+        // Create new service
+        const { error } = await supabase
+          .from('services')
+          .insert({
+            title: values.title,
+            short_description: values.short_description,
+            full_description: values.full_description,
+            created_by: user?.id,
+            price: values.price,
+          });
+        
+        if (error) throw error;
+        
+        toast.success('Service created successfully!');
+      }
       
-      if (error) throw error;
-      
-      // Success handling
-      toast.success('Service created successfully!');
+      // Reset the form and close the modal
       serviceForm.reset();
       setIsServiceModalOpen(false);
+      setIsEditing(false);
+      setCurrentServiceId(null);
       
       // Refresh the services list
       fetchServices();
     } catch (error: any) {
-      console.error('Error creating service:', error);
-      toast.error(`Failed to create service: ${error.message}`);
+      console.error(`Error ${isEditing ? 'updating' : 'creating'} service:`, error);
+      toast.error(`Failed to ${isEditing ? 'update' : 'create'} service: ${error.message}`);
     } finally {
       setIsSubmittingService(false);
     }
@@ -318,21 +389,75 @@ const AdminDashboard: React.FC = () => {
     }
   };
   
+  // Updated function to handle file uploads with proper mime type detection and validation
   const onFileUploadSubmit = async (values: z.infer<typeof fileUploadSchema>) => {
     setIsSubmittingFile(true);
     
     try {
       const fileToUpload = values.file[0];
+      
+      // Check file type and validate
+      const allowedMimeTypes = [
+        'application/pdf', 
+        'image/jpeg', 
+        'image/png', 
+        'image/gif',
+        'text/plain',
+        'text/csv',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/zip'
+      ];
+      
+      console.log('File MIME type:', fileToUpload.type);
+      
+      if (!allowedMimeTypes.includes(fileToUpload.type)) {
+        throw new Error(`Unsupported file type: ${fileToUpload.type}. Allowed types are PDF, images, documents, spreadsheets, and zip files.`);
+      }
+      
       const fileExt = fileToUpload.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `uploads/${fileName}`;
       
-      // Upload file to Supabase Storage
+      // Add proper content type to file upload
+      const fileOptions = {
+        contentType: fileToUpload.type
+      };
+      
+      console.log('Uploading file with options:', fileOptions);
+      
+      // Create a storage bucket if it doesn't exist (first ensure we have access to storage)
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      
+      if (bucketsError) {
+        throw bucketsError;
+      }
+      
+      const filesBucketExists = buckets.some(bucket => bucket.name === 'files');
+      
+      if (!filesBucketExists) {
+        const { error: createBucketError } = await supabase.storage.createBucket('files', {
+          public: true,
+          fileSizeLimit: 52428800 // 50MB
+        });
+        
+        if (createBucketError) {
+          throw createBucketError;
+        }
+        
+        console.log('Created files bucket');
+      }
+      
+      // Upload file to Supabase Storage using the 'files' bucket
       const { data: fileData, error: fileError } = await supabase.storage
         .from('files')
-        .upload(filePath, fileToUpload);
+        .upload(filePath, fileToUpload, fileOptions);
       
-      if (fileError) throw fileError;
+      if (fileError) {
+        throw fileError;
+      }
       
       // Get the public URL for the file
       const { data: publicUrlData } = supabase.storage
@@ -343,9 +468,9 @@ const AdminDashboard: React.FC = () => {
       const { data, error } = await supabase
         .from('files')
         .insert({
-          title: values.title,
+          file_name: values.title,
           description: values.description,
-          file_url: publicUrlData.publicUrl,
+          file_path: publicUrlData.publicUrl,
           user_id: user?.id,
           access: values.access,
         })
@@ -368,7 +493,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
   
-  // Delete handlers
   const handleDeleteService = async (id: string) => {
     if (confirm('Are you sure you want to delete this service?')) {
       try {
@@ -484,7 +608,8 @@ const AdminDashboard: React.FC = () => {
 
   if (!isAdmin) {
     return null; // Will redirect in useEffect
-  } 
+  }
+  
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -559,7 +684,12 @@ const AdminDashboard: React.FC = () => {
                             <TableCell>{formatDate(service.created_at)}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
-                                <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleEditService(service)}
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                                 <Button 
@@ -758,6 +888,7 @@ const AdminDashboard: React.FC = () => {
             </Card>
           </TabsContent>
           
+          {/* Updated users tab content to properly display all users */}
           <TabsContent value="users" className="space-y-6">
             <Card>
               <CardHeader>
@@ -865,52 +996,299 @@ const AdminDashboard: React.FC = () => {
       </main>
       <Footer />
       
-      <Dialog open={isServiceModalOpen} onOpenChange={setIsServiceModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+      {/* Service Modal */}
+      <Dialog open={isServiceModalOpen} onOpenChange={handleCloseServiceModal}>
+        <DialogContent>
           <DialogHeader>
-           <DialogTitle>Add New Service</DialogTitle>
-           <DialogDescription>
-             Create a new service that will appear on the services page.
-           </DialogDescription>
+            <DialogTitle>{isEditing ? 'Edit Service' : 'Add New Service'}</DialogTitle>
+            <DialogDescription>
+              {isEditing ? 'Update the details of this service.' : 'Create a new service that will appear on the services page.'}
+            </DialogDescription>
           </DialogHeader>
-
           <Form {...serviceForm}>
             <form onSubmit={serviceForm.handleSubmit(onServiceSubmit)} className="space-y-4">
-        
-             <FormField
-               control={serviceForm.control}
-               name="title"
-               render={({ field }) => (
-               <FormItem>
-                 <FormLabel>Title</FormLabel>
-                 <FormControl>
-                   <Input placeholder="Enter service title" {...field} />
-                 </FormControl>
-                 <FormMessage />
-                </FormItem>
+              <FormField
+                control={serviceForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Service title" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-             />
-
+              />
               <FormField
                 control={serviceForm.control}
                 name="short_description"
                 render={({ field }) => (
-                <FormItem>
-                 <FormLabel>Short Description</FormLabel>
-                 <FormControl>
-                   <Input placeholder="Description" {...field} />
-                 </FormControl>
-                 <FormMessage />
-                </FormItem>
+                  <FormItem>
+                    <FormLabel>Short Description</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Brief description for service card (150 chars or less)"
+                        {...field}
+                        className="resize-none"
+                        rows={3}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
               />
- 
-              <Button type="submit">Submit</Button>
+              <FormField
+                control={serviceForm.control}
+                name="full_description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Description</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Detailed description of the service"
+                        {...field}
+                        className="resize-none"
+                        rows={5}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={serviceForm.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Price (USD)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="0.00" 
+                        {...field} 
+                        step="0.01"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleCloseServiceModal}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-ozar-red hover:bg-ozar-red/90"
+                  disabled={isSubmittingService}
+                >
+                  {isSubmittingService && (
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {isEditing ? 'Update Service' : 'Create Service'}
+                </Button>
+              </DialogFooter>
             </form>
           </Form>
-         </DialogContent>
-       </Dialog>
-     </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Blog Post Modal */}
+      <Dialog open={isBlogModalOpen} onOpenChange={setIsBlogModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Blog Post</DialogTitle>
+            <DialogDescription>
+              Write a new blog post for your website.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...blogForm}>
+            <form onSubmit={blogForm.handleSubmit(onBlogPostSubmit)} className="space-y-4">
+              <FormField
+                control={blogForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Blog post title" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={blogForm.control}
+                name="short_content"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Preview</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Brief preview of the blog post"
+                        {...field}
+                        className="resize-none"
+                        rows={3}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={blogForm.control}
+                name="full_content"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Content</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Full blog post content"
+                        {...field}
+                        className="resize-none"
+                        rows={8}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsBlogModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-ozar-red hover:bg-ozar-red/90"
+                  disabled={isSubmittingBlog}
+                >
+                  {isSubmittingBlog && (
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Publish Post
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* File Upload Modal */}
+      <Dialog open={isFileModalOpen} onOpenChange={setIsFileModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload New File</DialogTitle>
+            <DialogDescription>
+              Upload a file for users to download. Supported formats include PDF, text, spreadsheets, documents, and ZIP files.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...fileForm}>
+            <form onSubmit={fileForm.handleSubmit(onFileUploadSubmit)} className="space-y-4">
+              <FormField
+                control={fileForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="File title" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={fileForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Description of the file"
+                        {...field}
+                        className="resize-none"
+                        rows={3}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={fileForm.control}
+                name="file"
+                render={({ field: { onChange, value, ...rest } }) => (
+                  <FormItem>
+                    <FormLabel>File</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="file" 
+                        onChange={(e) => onChange(e.target.files)}
+                        accept=".pdf,.png,.gif,.txt,.csv,.doc,.docx,.zip,.pkt,.pka"
+                        {...rest}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Supported formats: PDF, PKT, text, spreadsheets, documents, and ZIP files.
+                    </p>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={fileForm.control}
+                name="access"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Access Level</FormLabel>
+                    <FormControl>
+                      <select
+                        className="w-full p-2 border rounded"
+                        {...field}
+                      >
+                        <option value="free">Free</option>
+                        <option value="premium">Premium</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsFileModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-ozar-red hover:bg-ozar-red/90"
+                  disabled={isSubmittingFile}
+                >
+                  {isSubmittingFile && (
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Upload File
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
 
-)}
 export default AdminDashboard;

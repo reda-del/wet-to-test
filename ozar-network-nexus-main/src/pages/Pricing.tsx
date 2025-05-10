@@ -68,6 +68,7 @@ const Pricing = () => {
                     onClick={() => handleSubscribe('Free')}
                     className="mt-6 w-full bg-ozar-red text-white hover:bg-ozar-red/90"
                   >
+                    you are in this plan
                     {user ? 'Current Plan' : 'Get Started for Free'}
                   </Button>
                 </div>
@@ -116,10 +117,12 @@ const Pricing = () => {
                     </li>
                   </ul>
                   <Button 
-                    onClick={() => handleSubscribe('Premium')}
+                    asChild
                     className="mt-6 w-full bg-ozar-red text-white hover:bg-ozar-red/90"
                   >
-                    Subscribe
+                    <a href="https://buy.stripe.com/test_3cI6oGbhJ5Zh2fHevmcs800" target="_blank" rel="noopener noreferrer">
+                      Subscribe
+                    </a>
                   </Button>
                 </div>
               </div>
@@ -156,10 +159,12 @@ const Pricing = () => {
                     </li>
                   </ul>
                   <Button 
-                    onClick={() => handleSubscribe('Student')}
+                    asChild
                     className="mt-6 w-full bg-ozar-red text-white hover:bg-ozar-red/90"
                   >
-                    Verify & Subscribe
+                    <a href="https://buy.stripe.com/test_aEUeYx8mCeIa5QA4gh" target="_blank" rel="noopener noreferrer">
+                      Subscribe
+                    </a>
                   </Button>
                 </div>
               </div>
@@ -169,7 +174,7 @@ const Pricing = () => {
               <h3 className="text-lg font-semibold mb-2">Need a custom plan for your organization?</h3>
               <p className="mb-6 text-muted-foreground">Contact us for bulk pricing and custom lab environments for your team or institution.</p>
               <Button asChild variant="outline" className="border-ozar-red text-ozar-red hover:bg-ozar-red hover:text-white">
-                <a href="#contact">Contact Sales</a>
+                <a href="mailto:abdo.reda.business@gmail.com?subject=Contact%20Sales&body=I%20want%20to%20ask%20about...">Contact Sales</a>
               </Button>
             </div>
           </div>

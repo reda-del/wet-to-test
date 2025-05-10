@@ -148,6 +148,7 @@ export type Database = {
           created_by: string | null
           full_description: string | null
           id: string
+          price: number | null
           short_description: string | null
           title: string | null
         }
@@ -156,6 +157,7 @@ export type Database = {
           created_by?: string | null
           full_description?: string | null
           id?: string
+          price?: number | null
           short_description?: string | null
           title?: string | null
         }
@@ -164,6 +166,7 @@ export type Database = {
           created_by?: string | null
           full_description?: string | null
           id?: string
+          price?: number | null
           short_description?: string | null
           title?: string | null
         }

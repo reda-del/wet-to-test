@@ -1,8 +1,9 @@
 
+import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { useEffect } from "react";
@@ -18,6 +19,7 @@ import Blog from "./pages/Blog";
 import Downloads from "./pages/Downloads";
 import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
+import LiveChat from "./components/LiveChat";
 import { useAuth } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -47,7 +49,6 @@ const ScrollToHash = () => {
   
   return null;
 };
-
 // Protected route component with proper loading state
 const ProtectedRoute = ({ children, adminRequired = false }: { children: React.ReactNode, adminRequired?: boolean }) => {
   const { user, loading, profileLoading, userRole } = useAuth();
@@ -78,6 +79,7 @@ const ProtectedRoute = ({ children, adminRequired = false }: { children: React.R
 const AppRoutes = () => (
   <>
     <ScrollToHash />
+    <LiveChat />
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
@@ -102,6 +104,11 @@ const AppRoutes = () => (
           <AdminDashboard />
         </ProtectedRoute>
       } />
+      <Route path="/about" element={<Index />} />
+      <Route path="/contact" element={<Index />} />
+      <Route path="/privacy" element={<Index />} />
+      <Route path="/terms" element={<Index />} />
+      <Route path="/faq" element={<Index />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

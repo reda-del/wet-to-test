@@ -26,6 +26,7 @@ type AuthContextType = {
   loading: boolean;
   profileLoading: boolean;
   updateProfile: (updates: Partial<ProfileType>) => Promise<void>;
+  isLoading: boolean; // Added property for PremiumLabs.tsx
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -191,17 +192,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Improved signOut function with better error handling
   const signOut = async () => {
+    console.log("Sign out initiated");
+    setLoading(true);
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
-        toast.error(error.message);
+        console.error('Error during sign out:', error);
+        toast.error(`Sign out failed: ${error.message}`);
         throw error;
       }
-      // Redirect is handled by the onAuthStateChange listener
-    } catch (error) {
+      
+      // Force clear session state
+      setSession(null);
+      setUser(null);
+      setUserRole(null);
+      setProfile(null);
+      
+      toast.success('Successfully signed out');
+      navigate('/');
+    } catch (error: any) {
       console.error('Error signing out:', error);
-      throw error;
+      toast.error(`Failed to sign out: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -243,6 +258,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     profileLoading,
     updateProfile,
+    isLoading: loading || profileLoading, // Added property for PremiumLabs.tsx
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
